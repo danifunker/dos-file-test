@@ -2,13 +2,18 @@
 #define FILECOPY_H
 
 class FileCopy {
+private:
+    bool m_debugMode;
+    
 public:
     void copyFile(const char* sourcePath, const char* destPath);
     
-    // Set this to true to overwrite files without prompting
-    bool forceOverwrite;
+    // Set debug mode
+    void setDebugMode(bool mode) { m_debugMode = mode; }
+    bool getDebugMode() const { return m_debugMode; }
     
-    FileCopy() : forceOverwrite(false) {}
+    // Constructor
+    FileCopy() : m_debugMode(false) {}
 };
 
 #endif // FILECOPY_H

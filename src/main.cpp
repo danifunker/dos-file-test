@@ -1,11 +1,11 @@
 /* 
  * FileCopy Utility
- * Copyright (C) 2025 Daniel Funke
+ * Copyright (C) 2025 Dani Sarfati (danifunker)
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  *
- * This file contains code inspired by the FreeDOS xcopy utility
+ * This file contains code adapted from the FreeDOS xcopy utility
  * Source: https://github.com/FDOS/xcopy/tree/master/source
  */
 
@@ -25,26 +25,30 @@
 #include <dos.h>
 #include <dir.h>
 #include <stdio.h>
-#include <ctype.h>  // Add this for toupper()
+#include <ctype.h>
 #include "filecopy.h"
 
 #define VERSION "0.1"
 
-// Flag for overwrite mode
+// Flags for operation modes
 bool forceOverwrite = false;
+bool debugMode = false;  // New flag for debug mode
 
 void showUsage(const char* programName) {
     cout << "FileCopy Utility v" << VERSION << endl;
-    cout << "Copyright (C) 2025 Daniel Funke" << endl;
+    cout << "Copyright (C) 2025 Dani Sarfati (danifunker)" << endl;
     cout << "Licensed under GNU GPL v2 or later" << endl;
     cout << "GitHub: https://github.com/danifunker/dos-file-test" << endl;
     cout << endl;
-    cout << "Usage: " << programName << " <source_file> <destination_file> [/y]" << endl;
+    cout << "Usage: " << programName << " <source_file> <destination_file> [options]" << endl;
     cout << endl;
     cout << "Parameters:" << endl;
     cout << "  <source_file>      - Path to the file to be copied" << endl;
     cout << "  <destination_file> - Path where the file will be copied to" << endl;
-    cout << "  /y                 - Optional: Overwrite files without prompting" << endl;
+    cout << endl;
+    cout << "Options:" << endl;
+    cout << "  /y                 - Overwrite files without prompting" << endl;
+    cout << "  /d                 - Show debug information" << endl;
     cout << endl;
     cout << "Examples: " << endl;
     cout << "  " << programName << " C:\\DATA.TXT D:\\BACKUP.TXT" << endl;
@@ -111,11 +115,13 @@ int main(int argc, char* argv[]) {
     strcpy(sourcePath, argv[1]);
     strcpy(destinationPath, argv[2]);
     
-    // Check for /y flag
+    // Check for flags
     for (int i = 3; i < argc; i++) {
         if (stricmp(argv[i], "/y") == 0) {
             forceOverwrite = true;
-            break;
+        }
+        else if (stricmp(argv[i], "/d") == 0) {
+            debugMode = true;
         }
     }
     
@@ -155,6 +161,7 @@ int main(int argc, char* argv[]) {
     }
 
     FileCopy fileCopy;
+    fileCopy.setDebugMode(debugMode);  // Pass debug mode to FileCopy
     fileCopy.copyFile(sourcePath, destinationPath);
     
     cout << "File transfer operation completed." << endl;
