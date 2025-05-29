@@ -43,7 +43,7 @@ void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
 
         time_t currentTime = time(NULL);
         double duration = difftime(currentTime, startTime);
-        double currentSpeed = (duration > 0) ? (bytesRead / duration) : 0.0;
+        double currentSpeed = (duration > 0) ? (totalBytesCopied / duration) : 0.0;
 
         if (speedCount == 0) {
             maxSpeed = minSpeed = currentSpeed;

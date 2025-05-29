@@ -13,8 +13,13 @@ void Progress::showProgressBar(long bytesTransferred, long totalBytes, double sp
         else if (i == pos) cout << ">";
         else cout << " ";
     }
-    cout << "] " << (int)(progress * 100.0) << " %\r";
+    // Show progress percentage with 2 decimal places
+    cout << "] " << setprecision(2) << setiosflags(ios::fixed) 
+         << (progress * 100.0) << " %\r";
     cout.flush();
 
-    cout << "\nCurrent Speed: " << setprecision(2) << fixed << speed << " bytes/sec" << endl;
+    // Convert bytes/sec to MB/sec and display with 2 decimal places
+    double speedInMB = speed / (1024.0 * 1024.0); // Convert to MB/s
+    cout << "\nCurrent Speed: " << setprecision(2) 
+         << setiosflags(ios::fixed) << speedInMB << " MB/sec" << endl;
 }

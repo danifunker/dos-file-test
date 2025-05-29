@@ -1,33 +1,41 @@
-# Makefile for Borland C++ 5.02
+# Makefile for Borland C++ 5.02 DOS application
 
-# Set compiler and linker
-CC = bcc
-# Compiler flags: -ml for large memory model, suitable for DOS
-CFLAGS = -ml -w -O1
+# Model configuration (DOS16 large model)
+SYSTEM = DOS16
+MODEL = l
 
 # Source files
-SRCS = src/main.cpp src/filecopy.cpp src/progress.cpp src/logger.cpp
-OBJS = src/main.obj src/filecopy.obj src/progress.obj src/logger.obj
-EXEC = filecopy.exe
+EXE = filecopy
+OBJEXE = src\main.obj src\filecopy.obj src\progress.obj src\logger.obj
 
-# Main build rule
-$(EXEC): $(OBJS)
-	$(CC) $(CFLAGS) -e$(EXEC) $(OBJS)
+# Compiler settings
+CPUOPT = 3
+CFLAGS = -ml -w -O1
+CCFEXE = -I\src
 
-# Rules for building .obj files from .cpp files
-src/main.obj: src/main.cpp
-	$(CC) $(CFLAGS) -c src/main.cpp -osrc/main.obj
+.autodepend
 
-src/filecopy.obj: src/filecopy.cpp
-	$(CC) $(CFLAGS) -c src/filecopy.cpp -osrc/filecopy.obj
+# Default rule - build all
+all: $(EXE).exe
 
-src/progress.obj: src/progress.cpp
-	$(CC) $(CFLAGS) -c src/progress.cpp -osrc/progress.obj
+# Individual object files
+src\main.obj: src\main.cpp
+    $(MAKEDIR)\bin\bcc $(CFLAGS) -c src\main.cpp
 
-src/logger.obj: src/logger.cpp
-	$(CC) $(CFLAGS) -c src/logger.cpp -osrc/logger.obj
+src\filecopy.obj: src\filecopy.cpp src\filecopy.h
+    $(MAKEDIR)\bin\bcc $(CFLAGS) -c src\filecopy.cpp
+
+src\progress.obj: src\progress.cpp src\progress.h
+    $(MAKEDIR)\bin\bcc $(CFLAGS) -c src\progress.cpp
+
+src\logger.obj: src\logger.cpp src\logger.h
+    $(MAKEDIR)\bin\bcc $(CFLAGS) -c src\logger.cpp
+
+# Link the executable
+$(EXE).exe: $(OBJEXE)
+    $(MAKEDIR)\bin\bcc $(CFLAGS) -e$(EXE).exe $(OBJEXE)
 
 # Clean target
 clean:
-	del src\*.obj
-	del $(EXEC)
+    del src\*.obj
+    del $(EXE).exe
