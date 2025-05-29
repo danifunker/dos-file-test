@@ -40,3 +40,54 @@ void extractDirectory(const char* filePath, char* dirPath) {
     } else {
         // No directory separator found, use current directory
         strcpy(dirPath, ".\\");
+    }
+}
+
+// Changed to use longs instead of doubles
+void Logger::logTransferDetails(const char* source, const char* destination, 
+                               long fileSize, long maxSpeed, long minSpeed, 
+                               long avgSpeed, long duration) {
+    // Extract the destination directory
+    char destDir[256];
+    extractDirectory(destination, destDir);
+    
+    // Create log file path in the destination directory
+    char logPath[256];
+    strcpy(logPath, destDir);
+    strcat(logPath, "TRANSFER.LOG");
+    
+    ofstream logFile(logPath, ios::app);
+    
+    if (!logFile) {
+        cerr << "Error opening log file: " << logPath << endl;
+        return;
+    }
+
+    // Get current time
+    time_t now = time(NULL);
+    struct tm* localTime = localtime(&now);
+    char timeBuffer[80];
+    strftime(timeBuffer, 80, "%Y-%m-%d %H:%M:%S", localTime);
+
+    // Format speeds with proper units and precision
+    char maxSpeedStr[20];
+    char minSpeedStr[20];
+    char avgSpeedStr[20];
+    
+    formatSpeedForLog(maxSpeed, maxSpeedStr);
+    formatSpeedForLog(minSpeed, minSpeedStr);
+    formatSpeedForLog(avgSpeed, avgSpeedStr);
+
+    logFile << "Transfer Log" << endl;
+    logFile << "Date and Time: " << timeBuffer << endl;
+    logFile << "Source: " << source << endl;
+    logFile << "Destination: " << destination << endl;
+    logFile << "Size: " << fileSize << " bytes" << endl;
+    logFile << "Max: " << maxSpeedStr << endl;
+    logFile << "Min: " << minSpeedStr << endl;
+    logFile << "Avg: " << avgSpeedStr << endl;
+    logFile << "Time: " << duration << " seconds" << endl;
+    logFile << "----------------------------------------" << endl;
+
+    logFile.close();
+}
