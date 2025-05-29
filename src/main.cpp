@@ -28,7 +28,7 @@
 #include <ctype.h>
 #include "filecopy.h"
 
-#define VERSION "0.5"  // Bumped version from 0.1 to 0.5
+#define VERSION "0.6"
 
 // Flags for operation modes
 bool forceOverwrite = false;
