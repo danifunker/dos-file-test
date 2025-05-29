@@ -28,7 +28,7 @@
 #include <ctype.h>
 #include "filecopy.h"
 
-#define VERSION "0.1"
+#define VERSION "0.5"  // Bumped version from 0.1 to 0.5
 
 // Flags for operation modes
 bool forceOverwrite = false;
@@ -77,12 +77,27 @@ long getFileSize(const char* filePath) {
     return size;
 }
 
+// Function to format file size with MB and bytes
+void formatFileSize(long sizeInBytes, char* buffer) {
+    // Calculate size in MB with 2 decimal places
+    double sizeInMB = (double)sizeInBytes / (1024.0 * 1024.0);
+    sprintf(buffer, "%.2f MB [%ld bytes]", sizeInMB, sizeInBytes);
+}
+
 // Function to prompt for file overwrite
-bool promptOverwrite(const char* filePath) {
-    long fileSize = getFileSize(filePath);
+bool promptOverwrite(const char* filePath, const char* sourcePath) {
+    long destSize = getFileSize(filePath);
+    long sourceSize = getFileSize(sourcePath);
+    
+    char destSizeStr[50];
+    char sourceSizeStr[50];
+    
+    formatFileSize(destSize, destSizeStr);
+    formatFileSize(sourceSize, sourceSizeStr);
     
     cout << "File already exists: " << filePath << endl;
-    cout << "Size: " << fileSize << " bytes" << endl;
+    cout << "Destination size: " << destSizeStr << endl;
+    cout << "Source size:      " << sourceSizeStr << endl;
     cout << "Overwrite? (Y)es/(N)o/(A)ll: ";
     
     char response;
@@ -154,7 +169,7 @@ int main(int argc, char* argv[]) {
     
     // Check if destination file exists and prompt for overwrite if needed
     if (fileExists(destinationPath) && !forceOverwrite) {
-        if (!promptOverwrite(destinationPath)) {
+        if (!promptOverwrite(destinationPath, sourcePath)) {
             cout << "Copy operation cancelled." << endl;
             return 0;
         }
