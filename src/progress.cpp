@@ -1,6 +1,8 @@
 #include "progress.h"
 #include <iostream.h>
 #include <iomanip.h>
+#include <stdio.h>  // For sprintf
+#include <string.h> // For strcpy
 
 // Function to format time remaining in minutes:seconds
 void formatTimeRemaining(long secondsRemaining, char* buffer) {
@@ -16,6 +18,23 @@ void formatTimeRemaining(long secondsRemaining, char* buffer) {
         sprintf(buffer, "%ldm %lds", minutes, seconds);
     } else {
         sprintf(buffer, "%lds", seconds);
+    }
+}
+
+// Function to format speed in appropriate units with 2 decimal places
+void formatSpeed(long bytesPerSec, char* buffer) {
+    if (bytesPerSec <= 0) {
+        strcpy(buffer, "0.00 KB/s");
+        return;
+    }
+    
+    // Use MB/s for speeds over 2048 KB/s (2 MB/s)
+    if (bytesPerSec >= 2048 * 1024) {
+        double mbPerSec = (double)bytesPerSec / (1024.0 * 1024.0);
+        sprintf(buffer, "%.2f MB/s", mbPerSec);
+    } else {
+        double kbPerSec = (double)bytesPerSec / 1024.0;
+        sprintf(buffer, "%.2f KB/s", kbPerSec);
     }
 }
 
@@ -52,12 +71,14 @@ void Progress::showProgressBar(long bytesTransferred, long totalBytes, long byte
     char timeRemainingStr[20];
     formatTimeRemaining(secondsRemaining, timeRemainingStr);
     
+    char speedStr[20];
+    formatSpeed(bytesPerSec, speedStr);
+    
     cout << "Progress: " << percent << "% complete";
     
     // Only show speed and time remaining if we have valid data
     if (bytesPerSec > 0) {
-        long kbSpeed = bytesPerSec / 1024;
-        cout << " - " << kbSpeed << " KB/sec - " << timeRemainingStr << " remaining";
+        cout << " - " << speedStr << " - " << timeRemainingStr << " remaining";
     }
     
     cout << "      \r";

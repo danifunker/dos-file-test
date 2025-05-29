@@ -32,3 +32,5 @@
 *.app
 
 .vscode/
+dosdrivers/
+.DS_Store

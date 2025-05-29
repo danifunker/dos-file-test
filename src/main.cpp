@@ -112,6 +112,37 @@ bool promptOverwrite(const char* filePath, const char* sourcePath) {
     return (response == 'Y');
 }
 
+// Add this function to check if a path is a directory
+bool isDirectory(const char* path) {
+    struct ffblk fileInfo;
+    int result = findfirst(path, &fileInfo, FA_DIREC);
+    
+    if (result != 0) {
+        return false;  // Path doesn't exist or other error
+    }
+    
+    return (fileInfo.ff_attrib & FA_DIREC) != 0;
+}
+
+// Add this function to extract the filename from a path
+void extractFilename(const char* path, char* filename) {
+    const char* lastSlash = strrchr(path, '\\');
+    const char* lastFwdSlash = strrchr(path, '/');
+    
+    // Find the last directory separator
+    const char* lastSep = lastSlash;
+    if (lastFwdSlash > lastSlash) {
+        lastSep = lastFwdSlash;
+    }
+    
+    if (lastSep) {
+        strcpy(filename, lastSep + 1);
+    } else {
+        strcpy(filename, path);  // No separator found, use the whole path
+    }
+}
+
+// Modify the main function to handle directory destinations
 int main(int argc, char* argv[]) {
     cout << "FileCopy Utility v" << VERSION << endl;
     cout << "GitHub: https://github.com/danifunker/dos-file-test" << endl;
@@ -119,6 +150,7 @@ int main(int argc, char* argv[]) {
 
     char sourcePath[MAXPATH] = {0};
     char destinationPath[MAXPATH] = {0};
+    char finalDestPath[MAXPATH] = {0};  // Will store the final destination path
 
     // Process command line arguments
     if (argc < 3) {
@@ -157,19 +189,38 @@ int main(int argc, char* argv[]) {
         strcpy(destinationPath, temp);
     }
     
-    cout << "Source: " << sourcePath << endl;
-    cout << "Destination: " << destinationPath << endl;
-    cout << endl;
-
     // Check if source file exists
     if (!fileExists(sourcePath)) {
         cerr << "Error: Source file does not exist: " << sourcePath << endl;
         return 1;
     }
     
+    // Check if destination is a directory
+    strcpy(finalDestPath, destinationPath);  // Start with the provided destination
+    
+    if (isDirectory(destinationPath)) {
+        char sourceFilename[MAXPATH];
+        extractFilename(sourcePath, sourceFilename);
+        
+        // Ensure destination path ends with a backslash
+        int destLen = strlen(destinationPath);
+        if (destinationPath[destLen-1] != '\\' && destinationPath[destLen-1] != '/') {
+            strcat(finalDestPath, "\\");
+        }
+        
+        // Append the source filename to the destination directory
+        strcat(finalDestPath, sourceFilename);
+        
+        cout << "Destination is a directory, using: " << finalDestPath << endl;
+    }
+    
+    cout << "Source: " << sourcePath << endl;
+    cout << "Destination: " << finalDestPath << endl;
+    cout << endl;
+    
     // Check if destination file exists and prompt for overwrite if needed
-    if (fileExists(destinationPath) && !forceOverwrite) {
-        if (!promptOverwrite(destinationPath, sourcePath)) {
+    if (fileExists(finalDestPath) && !forceOverwrite) {
+        if (!promptOverwrite(finalDestPath, sourcePath)) {
             cout << "Copy operation cancelled." << endl;
             return 0;
         }
@@ -177,7 +228,7 @@ int main(int argc, char* argv[]) {
 
     FileCopy fileCopy;
     fileCopy.setDebugMode(debugMode);  // Pass debug mode to FileCopy
-    fileCopy.copyFile(sourcePath, destinationPath);
+    fileCopy.copyFile(sourcePath, finalDestPath);
     
     cout << "File transfer operation completed." << endl;
     return 0;

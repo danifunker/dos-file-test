@@ -30,6 +30,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <signal.h>  // For signal handling
+#include <process.h> // For _exit()
 #include "filecopy.h"
 #include "progress.h"
 #include "logger.h"
@@ -46,7 +47,12 @@ static bool gDebugMode = false;
 
 // Signal handler for CTRL+C
 void interruptHandler(int sig) {
-    cout << "\n\nCTRL+C pressed. Interrupting copy operation..." << endl;
+    // Use sig parameter to avoid warning
+    if (sig == SIGINT) {
+        cout << "\n\nCTRL+C pressed. Interrupting copy operation..." << endl;
+    } else {
+        cout << "\n\nInterrupt signal " << sig << " received. Interrupting copy operation..." << endl;
+    }
     
     // Record current time for timeout calculations
     time_t interruptTime = time(NULL);
@@ -101,14 +107,44 @@ void interruptHandler(int sig) {
     }
     
     cout << "Time elapsed: " << totalDuration << " seconds" << endl;
-    cout << "Average speed: " << (avgBytesPerSec / 1024) << " KB/sec" << endl;
+    
+    // Format speed with proper units
+    char speedStr[20];
+    if (avgBytesPerSec <= 0) {
+        strcpy(speedStr, "0.00 KB/s");
+    } else if (avgBytesPerSec >= 2048 * 1024) {
+        double mbPerSec = (double)avgBytesPerSec / (1024.0 * 1024.0);
+        sprintf(speedStr, "%.2f MB/s", mbPerSec);
+    } else {
+        double kbPerSec = (double)avgBytesPerSec / 1024.0;
+        sprintf(speedStr, "%.2f KB/s", kbPerSec);
+    }
+    
+    cout << "Average speed: " << speedStr << endl;
     
     // Write a quick log file to record the interrupted transfer
     try {
         if (gSourcePath && gDestPath) {
-            // Create a special interrupted log entry
+            // Extract the destination directory
+            char destDir[256];
             char interruptedLogPath[256];
-            strcpy(interruptedLogPath, "INTERUPT.LOG");  // Using a different name for interrupted transfers
+            
+            // Get the directory from the destination path
+            strcpy(destDir, gDestPath);
+            char* lastSlash = strrchr(destDir, '\\');
+            char* lastFwdSlash = strrchr(destDir, '/');
+            char* lastSep = (lastFwdSlash > lastSlash) ? lastFwdSlash : lastSlash;
+            
+            if (lastSep) {
+                // Truncate after the last slash to get directory path
+                *(lastSep + 1) = '\0';
+                // Create log file path in the destination directory
+                strcpy(interruptedLogPath, destDir);
+                strcat(interruptedLogPath, "INTERUPT.LOG");
+            } else {
+                // No directory separator found, use current directory
+                strcpy(interruptedLogPath, "INTERUPT.LOG");
+            }
             
             ofstream logFile(interruptedLogPath, ios::app);
             if (logFile) {
@@ -125,7 +161,20 @@ void interruptHandler(int sig) {
                 logFile << "Total file size: " << gFileSize << " bytes" << endl;
                 logFile << "Bytes copied: " << gTotalBytesCopied << " bytes" << endl;
                 logFile << "Completion: " << (gTotalBytesCopied * 100 / (gFileSize ? gFileSize : 1)) << "%" << endl;
-                logFile << "Avg: " << (avgBytesPerSec / 1024) << " KB/sec" << endl;
+                
+                // Format speed with proper units
+                char speedStr[20];
+                if (avgBytesPerSec <= 0) {
+                    strcpy(speedStr, "0.00 KB/s");
+                } else if (avgBytesPerSec >= 2048 * 1024) {
+                    double mbPerSec = (double)avgBytesPerSec / (1024.0 * 1024.0);
+                    sprintf(speedStr, "%.2f MB/s", mbPerSec);
+                } else {
+                    double kbPerSec = (double)avgBytesPerSec / 1024.0;
+                    sprintf(speedStr, "%.2f KB/s", kbPerSec);
+                }
+                
+                logFile << "Avg: " << speedStr << endl;
                 logFile << "Time: " << totalDuration << " seconds" << endl;
                 logFile << "Status: INTERRUPTED BY USER (CTRL+C)" << endl;
                 if (!sourceClosedOk || !destClosedOk) {
@@ -134,7 +183,7 @@ void interruptHandler(int sig) {
                 logFile << "----------------------------------------" << endl;
                 
                 logFile.close();
-                cout << "Interrupted transfer log written to INTERUPT.LOG" << endl;
+                cout << "Interrupted transfer log written to " << interruptedLogPath << endl;
             }
         }
     }
@@ -143,7 +192,10 @@ void interruptHandler(int sig) {
     }
     
     cout << "Copy operation terminated by user." << endl;
-    exit(1);  // Exit the program immediately
+    
+    // Use _exit(int) from process.h instead of exit(int) from stdlib.h
+    // or terminate the program by returning from main
+    _exit(1);  // Exit the program immediately
 }
 
 // Simple stack tracking for debugging
@@ -202,9 +254,6 @@ void normalizePath(char* path, bool debugMode) {
 
 // This implementation is based on FreeDOS xcopy's direct file copy mechanism
 void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
-    enterFunction("copyFile", m_debugMode);
-    debugPrint("Copy operation started", m_debugMode);
-    
     // Set up signal handler for CTRL+C
     gSourcePath = sourcePath;
     gDestPath = destPath;
@@ -223,38 +272,27 @@ void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
     normalizePath(normalizedSource, m_debugMode);
     normalizePath(normalizedDest, m_debugMode);
     
-    debugPrint("Opening source file", m_debugMode);
-    
     // Open source file using low-level file I/O
     gSourceHandle = open(normalizedSource, O_RDONLY | O_BINARY);
     if (gSourceHandle < 0) {
         cerr << "Error opening source file: " << normalizedSource << endl;
-        exitFunction("copyFile", m_debugMode);
         return;
     }
     
-    debugPrint("Getting file size", m_debugMode);
     // Get file size using filelength() which is more reliable in DOS
     gFileSize = filelength(gSourceHandle);
     
-    static char sizeMsg[80];
-    sprintf(sizeMsg, "File size: %ld bytes", gFileSize);
-    debugPrint(sizeMsg, m_debugMode);
-    
-    debugPrint("Opening destination file", m_debugMode);
     // Open destination file - use 0666 for permission (rw-rw-rw-)
     gDestHandle = open(normalizedDest, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
     if (gDestHandle < 0) {
         cerr << "Error opening destination file: " << normalizedDest << endl;
         close(gSourceHandle);
         gSourceHandle = -1;
-        exitFunction("copyFile", m_debugMode);
         return;
     }
     
     // Buffer size - 8KB is a good balance for DOS
     const int BUFFER_SIZE = 8192;
-    debugPrint("Allocating buffer", m_debugMode);
     static char buffer[BUFFER_SIZE]; // Static to avoid stack issues
     
     gStartTime = time(NULL);
@@ -266,18 +304,14 @@ void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
     bool speedInitialized = false;
     int speedCount = 0;
     
-    debugPrint("Setting up progress tracking", m_debugMode);
     time_t lastUpdateTime = gStartTime;
     
-    cout << "Starting copy operation..." << endl;
+    // Removed "Starting copy operation..." message
     cout << "Press CTRL+C to interrupt the transfer at any time." << endl;
     
     // Initial progress display
     Progress progress;
-    debugPrint("Showing initial progress", m_debugMode);
     progress.showProgressBar(0, gFileSize, 0);
-    
-    debugPrint("Starting copy loop", m_debugMode);
     
     int bytesRead;
     long loopCount = 0;
@@ -290,18 +324,10 @@ void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
     while ((bytesRead = read(gSourceHandle, buffer, BUFFER_SIZE)) > 0) {
         loopCount++;
         
-        // Debug output for every 100th iteration
-        if (m_debugMode && loopCount % 100 == 0) {
-            static char loopMsg[80];
-            sprintf(loopMsg, "Copy loop iteration: %ld, Bytes copied: %ld", loopCount, gTotalBytesCopied);
-            debugPrint(loopMsg, m_debugMode);
-        }
-        
         // Write the chunk to destination
         int bytesWritten = write(gDestHandle, buffer, bytesRead);
         if (bytesWritten != bytesRead) {
             cerr << "Error writing to destination file" << endl;
-            debugPrint("Write error, closing files", m_debugMode);
             error = true;
             break;
         }
@@ -311,7 +337,6 @@ void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
         // Update progress display more frequently (every 0.2 seconds)
         time_t currentTime = time(NULL);
         if (difftime(currentTime, lastUpdateTime) >= UPDATE_INTERVAL) {
-            debugPrint("Updating progress display", m_debugMode);
             long elapsedSecs = (long)difftime(currentTime, gStartTime);
             
             // Calculate speed (bytes per second)
@@ -348,35 +373,44 @@ void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
         }
     }
     
-    debugPrint("Copy loop complete, closing files", m_debugMode);
     // Close both files
     close(gSourceHandle);
     close(gDestHandle);
     gSourceHandle = gDestHandle = -1;
     
     if (error) {
-        exitFunction("copyFile", m_debugMode);
         return;
     }
     
-    debugPrint("Calculating final statistics", m_debugMode);
     time_t endTime = time(NULL);
     long totalDuration = (long)difftime(endTime, gStartTime);
     
     long avgBytesPerSec = 0;
     if (totalDuration > 0) {
         avgBytesPerSec = gTotalBytesCopied / totalDuration;
+    } else {
+        // For very fast transfers (less than 1 second), calculate based on file size
+        avgBytesPerSec = gFileSize;  // Assume file size = bytes per second for fast transfers
     }
     
-    debugPrint("Displaying completion message", m_debugMode);
     cout << "\nCopy complete: " << gFileSize << " bytes in " 
-         << totalDuration << " seconds" << endl;
+         << (totalDuration > 0 ? totalDuration : 1) << " seconds" << endl;
          
-    long avgKBPerSec = avgBytesPerSec / 1024;
-    cout << "Average speed: " << avgKBPerSec << " KB/sec" << endl;
+    // Format speed with proper units
+    char speedStr[20];
+    if (avgBytesPerSec <= 0) {
+        strcpy(speedStr, "0.00 KB/s");
+    } else if (avgBytesPerSec >= 2048 * 1024) {
+        double mbPerSec = (double)avgBytesPerSec / (1024.0 * 1024.0);
+        sprintf(speedStr, "%.2f MB/s", mbPerSec);
+    } else {
+        double kbPerSec = (double)avgBytesPerSec / 1024.0;
+        sprintf(speedStr, "%.2f KB/s", kbPerSec);
+    }
+    
+    cout << "Average speed: " << speedStr << endl;
     
     if (gTotalBytesCopied == gFileSize) {
-        debugPrint("Writing log file", m_debugMode);
         Logger logger;
         logger.logTransferDetails(sourcePath, destPath, gFileSize, 
                                 maxBytesPerSec, minBytesPerSec, 
@@ -385,7 +419,4 @@ void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
     
     // Reset signal handler to default
     signal(SIGINT, SIG_DFL);
-    
-    debugPrint("Copy operation complete", m_debugMode);
-    exitFunction("copyFile", m_debugMode);
 }
