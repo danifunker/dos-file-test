@@ -6,12 +6,12 @@ MODEL = l
 
 # Source files
 EXE = filecopy
-OBJEXE = src\main.obj src\filecopy.obj src\progress.obj src\logger.obj
+OBJEXE = main.obj filecopy.obj progress.obj logger.obj
 
 # Compiler settings
 CPUOPT = 3
 CFLAGS = -ml -w -O1
-CCFEXE = -I\src
+CCFEXE = -I
 
 .autodepend
 
@@ -19,23 +19,23 @@ CCFEXE = -I\src
 all: $(EXE).exe
 
 # Individual object files
-src\main.obj: src\main.cpp
-    $(MAKEDIR)\bin\bcc $(CFLAGS) -c src\main.cpp
+main.obj: main.cpp
+    bcc $(CFLAGS) -c main.cpp
 
-src\filecopy.obj: src\filecopy.cpp src\filecopy.h
-    $(MAKEDIR)\bin\bcc $(CFLAGS) -c src\filecopy.cpp
+filecopy.obj: filecopy.cpp filecopy.h
+    bcc $(CFLAGS) -c filecopy.cpp
 
-src\progress.obj: src\progress.cpp src\progress.h
-    $(MAKEDIR)\bin\bcc $(CFLAGS) -c src\progress.cpp
+progress.obj: progress.cpp progress.h
+    bcc $(CFLAGS) -c progress.cpp
 
-src\logger.obj: src\logger.cpp src\logger.h
-    $(MAKEDIR)\bin\bcc $(CFLAGS) -c src\logger.cpp
+logger.obj: logger.cpp logger.h
+    bcc $(CFLAGS) -c logger.cpp
 
 # Link the executable
 $(EXE).exe: $(OBJEXE)
-    $(MAKEDIR)\bin\bcc $(CFLAGS) -e$(EXE).exe $(OBJEXE)
+    bcc $(CFLAGS) -e$(EXE).exe $(OBJEXE)
 
 # Clean target
 clean:
-    del src\*.obj
+    del *.obj
     del $(EXE).exe
