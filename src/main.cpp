@@ -1,22 +1,96 @@
+/* 
+ * FileCopy Utility
+ * Copyright (C) 2025 Daniel Funke
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ *
+ * This file contains code inspired by the FreeDOS xcopy utility
+ * Source: https://github.com/FDOS/xcopy/tree/master/source
+ */
+
 #include <iostream.h>
 #include <string.h>
 #include <dos.h>
 #include <dir.h>
+#include <stdio.h>
+#include <ctype.h>  // Add this for toupper()
 #include "filecopy.h"
 
 #define VERSION "0.1"
 
+// Flag for overwrite mode
+bool forceOverwrite = false;
+
 void showUsage(const char* programName) {
-    cout << "Usage: " << programName << " <source_file> <destination_file>" << endl;
+    cout << "FileCopy Utility v" << VERSION << endl;
+    cout << "Copyright (C) 2025 Daniel Funke" << endl;
+    cout << "Licensed under GNU GPL v2 or later" << endl;
+    cout << "GitHub: https://github.com/danifunker/dos-file-test" << endl;
+    cout << endl;
+    cout << "Usage: " << programName << " <source_file> <destination_file> [/y]" << endl;
     cout << endl;
     cout << "Parameters:" << endl;
     cout << "  <source_file>      - Path to the file to be copied" << endl;
-    cout << "  <destination_folder> - Path where the file will be copied to" << endl;
+    cout << "  <destination_file> - Path where the file will be copied to" << endl;
+    cout << "  /y                 - Optional: Overwrite files without prompting" << endl;
     cout << endl;
     cout << "Examples: " << endl;
     cout << "  " << programName << " C:\\DATA.TXT D:\\BACKUP.TXT" << endl;
     cout << "  " << programName << " DATA.TXT BACKUP.TXT" << endl;
-    cout << "  " << programName << " ..\\SOURCE\\DATA.TXT ..\\DEST\\DATA.TXT" << endl;
+    cout << "  " << programName << " ..\\SOURCE\\DATA.TXT ..\\DEST\\DATA.TXT /y" << endl;
+}
+
+// Function to check if a file exists
+bool fileExists(const char* filePath) {
+    FILE* file = fopen(filePath, "r");
+    if (file) {
+        fclose(file);
+        return true;
+    }
+    return false;
+}
+
+// Function to get file size
+long getFileSize(const char* filePath) {
+    FILE* file = fopen(filePath, "rb");
+    if (!file) return 0;
+    
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fclose(file);
+    return size;
+}
+
+// Function to prompt for file overwrite
+bool promptOverwrite(const char* filePath) {
+    long fileSize = getFileSize(filePath);
+    
+    cout << "File already exists: " << filePath << endl;
+    cout << "Size: " << fileSize << " bytes" << endl;
+    cout << "Overwrite? (Y)es/(N)o/(A)ll: ";
+    
+    char response;
+    cin >> response;
+    response = toupper(response);
+    
+    if (response == 'A') {
+        forceOverwrite = true;
+        return true;
+    }
+    
+    return (response == 'Y');
 }
 
 int main(int argc, char* argv[]) {
@@ -36,6 +110,14 @@ int main(int argc, char* argv[]) {
     // Copy arguments to our buffers
     strcpy(sourcePath, argv[1]);
     strcpy(destinationPath, argv[2]);
+    
+    // Check for /y flag
+    for (int i = 3; i < argc; i++) {
+        if (stricmp(argv[i], "/y") == 0) {
+            forceOverwrite = true;
+            break;
+        }
+    }
     
     // Get absolute paths if needed
     if (sourcePath[0] != '\\' && sourcePath[1] != ':') {
@@ -57,6 +139,20 @@ int main(int argc, char* argv[]) {
     cout << "Source: " << sourcePath << endl;
     cout << "Destination: " << destinationPath << endl;
     cout << endl;
+
+    // Check if source file exists
+    if (!fileExists(sourcePath)) {
+        cerr << "Error: Source file does not exist: " << sourcePath << endl;
+        return 1;
+    }
+    
+    // Check if destination file exists and prompt for overwrite if needed
+    if (fileExists(destinationPath) && !forceOverwrite) {
+        if (!promptOverwrite(destinationPath)) {
+            cout << "Copy operation cancelled." << endl;
+            return 0;
+        }
+    }
 
     FileCopy fileCopy;
     fileCopy.copyFile(sourcePath, destinationPath);

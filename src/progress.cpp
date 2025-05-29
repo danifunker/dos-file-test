@@ -2,7 +2,8 @@
 #include <iostream.h>
 #include <iomanip.h>
 
-void Progress::showProgressBar(long bytesTransferred, long totalBytes, double speed) {
+// Changed to use longs instead of double for speed
+void Progress::showProgressBar(long bytesTransferred, long totalBytes, long bytesPerSec) {
     // Make sure we don't divide by zero
     if (totalBytes <= 0) {
         cout << "Progress: 0% complete      \r";
@@ -10,8 +11,7 @@ void Progress::showProgressBar(long bytesTransferred, long totalBytes, double sp
         return;
     }
     
-    // Calculate percentage, being careful with integer division
-    // Use long division to avoid overflow with large files
+    // Calculate percentage with integer division
     long percent = (bytesTransferred * 100L) / totalBytes;
     
     // Cap at 100% to avoid showing more than 100%
@@ -20,8 +20,8 @@ void Progress::showProgressBar(long bytesTransferred, long totalBytes, double sp
     cout << "Progress: " << percent << "% complete";
     
     // Only show speed if it's valid
-    if (speed > 0) {
-        long kbSpeed = (long)(speed / 1024.0);
+    if (bytesPerSec > 0) {
+        long kbSpeed = bytesPerSec / 1024;
         cout << " - " << kbSpeed << " KB/sec";
     }
     

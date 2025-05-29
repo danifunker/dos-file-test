@@ -3,7 +3,8 @@
 
 class Progress {
 public:
-    void showProgressBar(long bytesTransferred, long totalBytes, double speed);
+    // Changed to use longs instead of double for speed
+    void showProgressBar(long bytesTransferred, long totalBytes, long bytesPerSec);
 };
 
 #endif // PROGRESS_H
