@@ -47,77 +47,111 @@ void FileCopy::copyFile(const char* sourcePath, const char* destPath) {
     sourceFile.seekg(0, ios::end);
     long fileSize = sourceFile.tellg();
     sourceFile.seekg(0, ios::beg);
-
-    // Use a smaller buffer size for better DOS compatibility
-    const int BUFFER_SIZE = 4096;  // Reduced from 8KB to 4KB
+    
+    // Larger buffer for better performance
+    const int BUFFER_SIZE = 8192;  // 8KB buffer for faster copying
     char buffer[BUFFER_SIZE];
     long bytesRead;
     time_t startTime = time(NULL);
     long totalBytesCopied = 0;
-    double maxSpeed = 0.0, minSpeed = 0.0, totalSpeed = 0.0;
+    
+    // Track min/max speeds using integers only
+    long maxBytesPerSec = 0;
+    long minBytesPerSec = 0;
     int speedCount = 0;
     
-    // Update progress less frequently for large files
-    long updateInterval = fileSize / 100;  // Update roughly 100 times total
-    if (updateInterval < 4096) updateInterval = 4096;  // Minimum interval
-    if (updateInterval > 262144) updateInterval = 262144;  // Maximum 256KB interval
+    // Time-based progress updates (every 0.5 seconds)
+    time_t lastUpdateTime = startTime;
     
-    long nextUpdateAt = updateInterval;
+    cout << "Starting copy operation..." << endl;
     
+    // Initial progress display
     Progress progress;
-    progress.showProgressBar(0, fileSize, 0.0);
-
+    progress.showProgressBar(0, fileSize, 0);
+    
     // Process file in manageable chunks
-    while (!sourceFile.eof() && totalBytesCopied < fileSize) {
+    while (sourceFile && totalBytesCopied < fileSize) {
         sourceFile.read(buffer, BUFFER_SIZE);
         bytesRead = sourceFile.gcount();
         
         if (bytesRead <= 0) break;
         
         destFile.write(buffer, bytesRead);
-        totalBytesCopied += bytesRead;
-
-        // Update progress bar less frequently to reduce overhead
-        if (totalBytesCopied >= nextUpdateAt || totalBytesCopied == fileSize) {
-            time_t currentTime = time(NULL);
-            double duration = difftime(currentTime, startTime);
-            double currentSpeed = (duration > 0) ? ((double)totalBytesCopied / duration) : 0.0;
-
-            if (speedCount == 0) {
-                maxSpeed = minSpeed = currentSpeed;
-            } else {
-                if (currentSpeed > maxSpeed) maxSpeed = currentSpeed;
-                if (currentSpeed < minSpeed && currentSpeed > 0) minSpeed = currentSpeed;
-            }
-
-            totalSpeed += currentSpeed;
-            speedCount++;
-
-            // Simple progress without complex formatting
-            int percent = (int)((totalBytesCopied * 100) / fileSize);
-            cout << "Progress: " << percent << "% - "
-                 << (currentSpeed / 1024.0) << " KB/sec      \r";
-            cout.flush();
-            
-            nextUpdateAt = totalBytesCopied + updateInterval;
+        if (!destFile) {
+            cerr << "Error writing to destination file" << endl;
+            sourceFile.close();
+            destFile.close();
+            return;
         }
         
-        // Add a small delay to prevent hogging CPU and allow DOS to handle I/O
-        delay(1);  // 1ms delay between chunks
+        totalBytesCopied += bytesRead;
+
+        // Check if it's time to update progress (every 0.5 seconds)
+        time_t currentTime = time(NULL);
+        if (difftime(currentTime, lastUpdateTime) >= 0.5) {
+            long elapsedSecs = (long)difftime(currentTime, startTime);
+            
+            // Avoid division by zero
+            long currentBytesPerSec = 0;
+            if (elapsedSecs > 0) {
+                currentBytesPerSec = totalBytesCopied / elapsedSecs;
+            }
+
+            // Update min/max speed - avoid floating point
+            if (speedCount == 0) {
+                maxBytesPerSec = minBytesPerSec = currentBytesPerSec;
+            } else {
+                if (currentBytesPerSec > maxBytesPerSec) maxBytesPerSec = currentBytesPerSec;
+                if (currentBytesPerSec < minBytesPerSec && currentBytesPerSec > 0) 
+                    minBytesPerSec = currentBytesPerSec;
+            }
+
+            speedCount++;
+            
+            // Update progress display - pass speed as a long to avoid conversion
+            progress.showProgressBar(totalBytesCopied, fileSize, (double)currentBytesPerSec);
+            
+            // Remember when we last updated
+            lastUpdateTime = currentTime;
+        }
     }
+
+    // Close files as soon as copy is complete
+    sourceFile.close();
+    destFile.close();
 
     // Final update
     time_t endTime = time(NULL);
-    double totalDuration = difftime(endTime, startTime);
-    double averageSpeed = (totalDuration > 0) ? ((double)totalBytesCopied / totalDuration) : 0.0;
+    long totalDuration = (long)difftime(endTime, startTime);
+    
+    // Avoid division by zero
+    long avgBytesPerSec = 0;
+    if (totalDuration > 0) {
+        avgBytesPerSec = totalBytesCopied / totalDuration;
+    }
 
+    // Show final progress - avoid showing progress bar at the end
     cout << "\nCopy complete: " << fileSize << " bytes in " 
          << totalDuration << " seconds" << endl;
-    cout << "Average speed: " << (averageSpeed / 1024.0 / 1024.0) << " MB/sec" << endl;
+         
+    long avgKBPerSec = avgBytesPerSec / 1024;
+    cout << "Average speed: " << avgKBPerSec << " KB/sec" << endl;
 
-    Logger logger;
-    logger.logTransferDetails(sourcePath, destPath, fileSize, maxSpeed, minSpeed, averageSpeed, totalDuration);
-
-    sourceFile.close();
-    destFile.close();
+    // Only log if we copied the entire file
+    if (totalBytesCopied == fileSize) {
+        try {
+            // Convert to double only at the last moment for the log file
+            double maxSpeedD = (double)maxBytesPerSec;
+            double minSpeedD = (double)minBytesPerSec;
+            double avgSpeedD = (double)avgBytesPerSec;
+            double durationD = (double)totalDuration;
+    
+            Logger logger;
+            logger.logTransferDetails(sourcePath, destPath, fileSize, maxSpeedD, minSpeedD, 
+                                     avgSpeedD, durationD);
+        }
+        catch (...) {
+            cerr << "Warning: Could not write log file" << endl;
+        }
+    }
 }

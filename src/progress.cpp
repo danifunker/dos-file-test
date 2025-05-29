@@ -3,23 +3,28 @@
 #include <iomanip.h>
 
 void Progress::showProgressBar(long bytesTransferred, long totalBytes, double speed) {
-    const int barWidth = 50; // Reduced for DOS compatibility
-    double progress = (double)bytesTransferred / totalBytes;
-    int pos = (int)(barWidth * progress);
-
-    cout << "[";
-    for (int i = 0; i < barWidth; ++i) {
-        if (i < pos) cout << "=";
-        else if (i == pos) cout << ">";
-        else cout << " ";
+    // Make sure we don't divide by zero
+    if (totalBytes <= 0) {
+        cout << "Progress: 0% complete      \r";
+        cout.flush();
+        return;
     }
-    // Show progress percentage with 2 decimal places
-    cout << "] " << setprecision(2) << setiosflags(ios::fixed) 
-         << (progress * 100.0) << " %\r";
+    
+    // Calculate percentage, being careful with integer division
+    // Use long division to avoid overflow with large files
+    long percent = (bytesTransferred * 100L) / totalBytes;
+    
+    // Cap at 100% to avoid showing more than 100%
+    if (percent > 100) percent = 100;
+    
+    cout << "Progress: " << percent << "% complete";
+    
+    // Only show speed if it's valid
+    if (speed > 0) {
+        long kbSpeed = (long)(speed / 1024.0);
+        cout << " - " << kbSpeed << " KB/sec";
+    }
+    
+    cout << "      \r";
     cout.flush();
-
-    // Convert bytes/sec to MB/sec and display with 2 decimal places
-    double speedInMB = speed / (1024.0 * 1024.0); // Convert to MB/s
-    cout << "\nCurrent Speed: " << setprecision(2) 
-         << setiosflags(ios::fixed) << speedInMB << " MB/sec" << endl;
 }
