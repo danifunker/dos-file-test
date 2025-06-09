@@ -42,7 +42,7 @@ make
 This will generate the executable file. To run the application, use the following command:
 
 ```
-./dos-file-copy <source_file_path> <destination_file_path>
+FILECOPY.EXE <source_file_path> <destination_file_path>
 ```
 
 Replace `<source_file_path>` with the full path of the file you want to copy and `<destination_file_path>` with the desired destination path.
@@ -50,7 +50,7 @@ Replace `<source_file_path>` with the full path of the file you want to copy and
 ## Usage Example
 
 ```
-./dos-file-copy D:\folder\file.ext D:\folder\copy_of_file.ext
+FILECOPY.EXE D:\folder\file.ext D:\folder\copy_of_file.ext
 ```
 
 This command will copy `file.ext` from `D:\folder` to `D:\folder\copy_of_file.ext`, displaying the progress and logging the transfer details.
